@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Walkie-Talkie</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #222; color: white; }
+        #status { margin-bottom: 20px; color: #0f0; }
+        .btn { width: 150px; height: 150px; border-radius: 50%; border: none; background: #e74c3c; color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 5px #c0392b; }
+        .btn:active { box-shadow: 0 2px #c0392b; transform: translateY(3px); background: #ff5e4d; }
+        input { padding: 10px; border-radius: 5px; border: none; margin: 10px; }
+    </style>
+</head>
+<body>
+
+    <h2>Walkie-Talkie</h2>
+    <div id="status">Status: Initializing...</div>
+    
+    <p>Your ID: <span id="my-id">...</span></p>
+    
+    <input type="text" id="remote-id" placeholder="Enter Friend's ID">
+    <button onclick="connectToFriend()">Connect</button>
+
+    <br><br>
+    <button class="btn" id="ptt-button">HOLD TO TALK</button>
+
+    <script>
+        const peer = new Peer(); 
+        let currentCall = null;
+        let localStream = null;
+
+        // Get microphone access
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            localStream = stream;
+            // Keep mic "muted" until button is pressed
+            localStream.getAudioTracks()[0].enabled = false;
+        });
+
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            document.getElementById('status').innerText = "Status: Ready";
+        });
+
+        // Handle incoming calls
+        peer.on('call', (call) => {
+            call.answer(localStream);
+            handleCall(call);
+        });
+
+        function connectToFriend() {
+            const friendId = document.getElementById('remote-id').value;
+            if (friendId) {
+                const call = peer.call(friendId, localStream);
+                handleCall(call);
+            }
+        }
+
+        function handleCall(call) {
+            call.on('stream', (remoteStream) => {
+                const audio = new Audio();
+                audio.srcObject = remoteStream;
+                audio.play();
+                document.getElementById('status').innerText = "Status: Connected";
+            });
+        }
+
+        // Push-to-Talk Logic
+        const btn = document.getElementById('ptt-button');
+        
+        btn.addEventListener('mousedown', () => {
+            if (localStream) localStream.getAudioTracks()[0].enabled = true;
+            btn.style.background = "#2ecc71";
+        });
+
+        btn.addEventListener('mouseup', () => {
+            if (localStream) localStream.getAudioTracks()[0].enabled = false;
+            btn.style.background = "#e74c3c";
+        });
+
+        // Touch support for mobile
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (localStream) localStream.getAudioTracks()[0].enabled = true;
+        });
+        btn.addEventListener('touchend', () => {
+            if (localStream) localStream.getAudioTracks()[0].enabled = false;
+        });
+    </script>
+</body>
+</html>
