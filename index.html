@@ -14,7 +14,10 @@
             --panel-border: rgba(0, 242, 255, 0.3);
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+        }
 
         body {
             margin: 0;
@@ -27,9 +30,11 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
+            /* Prevents weird iOS bounce */
+            position: fixed; 
+            width: 100%;
         }
 
-        /* Background Grid */
         .bg-overlay {
             position: fixed;
             inset: 0;
@@ -40,11 +45,10 @@
             z-index: -1;
         }
 
-        /* Main Responsive Container */
         .comm-deck {
             width: 90vw;
             max-width: 450px;
-            height: 90vh;
+            height: 85vh;
             max-height: 800px;
             background: rgba(10, 15, 20, 0.9);
             border: 2px solid var(--panel-border);
@@ -52,11 +56,10 @@
             display: flex;
             flex-direction: column;
             padding: 25px;
-            box-shadow: 0 0 50px rgba(0,0,0,1), inset 0 0 20px rgba(0, 242, 255, 0.1);
+            box-shadow: 0 0 50px rgba(0,0,0,1);
             position: relative;
         }
 
-        /* Header / Scanline */
         .deck-header {
             font-size: 0.7rem;
             letter-spacing: 4px;
@@ -68,7 +71,6 @@
             padding-bottom: 10px;
         }
 
-        /* The Virtual Screen */
         .screen-module {
             background: #000;
             flex-grow: 1;
@@ -82,7 +84,6 @@
             overflow: hidden;
         }
 
-        /* Animated Signal Lines */
         .signal-wave {
             height: 40px;
             display: flex;
@@ -106,7 +107,6 @@
             text-shadow: 0 0 20px var(--glow-cyan);
         }
 
-        /* Controls */
         .control-panel {
             margin-top: 25px;
             display: flex;
@@ -119,19 +119,26 @@
             background: rgba(255,255,255,0.05);
             padding: 5px;
             border-radius: 12px;
-            border: 1px solid #333;
+            border: 1px solid #444;
+            /* Ensures it stays above other layers for clicking */
+            position: relative;
+            z-index: 10; 
         }
 
-        input[type="number"] {
+        /* CRITICAL iOS FIX: type="text" + inputmode="decimal" + 16px font */
+        input#freq-input {
             flex-grow: 1;
             background: transparent;
             border: none;
             color: var(--glow-cyan);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1.2rem;
-            padding: 10px;
+            font-size: 18px; /* Force 18px to prevent iOS zoom-freeze */
+            padding: 12px;
             outline: none;
             text-align: center;
+            -webkit-user-select: text; /* Force enable typing */
+            user-select: text;
+            pointer-events: auto;
         }
 
         .set-btn {
@@ -143,64 +150,37 @@
             font-family: 'Orbitron';
             font-weight: bold;
             cursor: pointer;
-            transition: 0.3s;
         }
 
-        /* TAP TOGGLE BUTTON */
         .ptt-circle {
-            width: min(150px, 35vw);
-            height: min(150px, 35vw);
-            margin: 20px auto;
+            width: min(140px, 35vw);
+            height: min(140px, 35vw);
+            margin: 15px auto;
             border-radius: 50%;
             border: 4px solid #1a1e23;
-            background: radial-gradient(circle, #1a1e23 0%, #000 100%);
+            background: #000;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            position: relative;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            transition: all 0.3s ease;
         }
 
         .ptt-circle.active {
             border-color: var(--glow-green);
             box-shadow: 0 0 30px rgba(0, 255, 157, 0.4);
-            transform: scale(1.1);
+            transform: scale(1.05);
         }
 
-        .mic-svg {
-            width: 40px;
-            fill: #333;
-            transition: 0.3s;
-        }
-
-        .active .mic-svg { fill: var(--glow-green); filter: drop-shadow(0 0 10px var(--glow-green)); }
-
-        .btn-label {
-            font-size: 0.6rem;
-            color: #555;
-            margin-top: 8px;
-            letter-spacing: 1px;
-        }
-
+        .mic-svg { width: 35px; fill: #333; transition: 0.3s; }
+        .active .mic-svg { fill: var(--glow-green); filter: drop-shadow(0 0 8px var(--glow-green)); }
+        .btn-label { font-size: 0.6rem; color: #555; margin-top: 5px; }
         .active .btn-label { color: var(--glow-green); }
 
-        /* Animations */
         @keyframes bounce {
             0%, 100% { height: 5px; opacity: 0.3; }
             50% { height: 30px; opacity: 1; }
-        }
-
-        /* Device Specific Tweaks */
-        @media (min-width: 768px) {
-            .comm-deck { width: 400px; height: 700px; }
-        }
-
-        @media (max-height: 600px) {
-            .comm-deck { height: 95vh; padding: 15px; }
-            .freq-readout { font-size: 2rem; }
         }
     </style>
 </head>
@@ -210,26 +190,20 @@
 
 <div class="comm-deck">
     <div class="deck-header">
-        <span>ID: <span id="peer-id-suffix">----</span></span>
-        <span>ENCRYPTED_LINK</span>
+        <span>FREQ: <span id="peer-id-suffix">0.000</span></span>
+        <span>V4_STABLE</span>
     </div>
 
     <div class="screen-module">
         <div id="status-tag" style="font-size: 0.6rem; color: var(--glow-cyan);">[ STANDBY ]</div>
-        
-        <div class="signal-wave" id="wave-container">
-            </div>
-
+        <div class="signal-wave" id="wave-container"></div>
         <div class="freq-readout" id="freq-display">00.000</div>
-        
-        <div style="font-family: 'JetBrains Mono'; font-size: 0.55rem; color: #444; text-align: center;">
-            BANDWIDTH: 12.4kbps // SIGNAL: STABLE
-        </div>
+        <div style="font-family: 'JetBrains Mono'; font-size: 0.5rem; color: #444; text-align: center;">SECURE DATA LINK V.24</div>
     </div>
 
     <div class="control-panel">
         <div class="input-wrapper">
-            <input type="number" id="freq-input" step="0.001" placeholder="91.898" min="1" max="100">
+            <input type="text" id="freq-input" inputmode="decimal" placeholder="91.898">
             <button class="set-btn" onclick="initializeComms()">LINK</button>
         </div>
 
@@ -238,7 +212,7 @@
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                 <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
             </svg>
-            <span class="btn-label" id="btn-text">OPEN LINK</span>
+            <span class="btn-label" id="btn-text">TAP TO TALK</span>
         </div>
     </div>
 </div>
@@ -248,9 +222,9 @@
     let localStream = null;
     let isLive = false;
 
-    // Create animated background bars
+    // Build wave bars
     const waveContainer = document.getElementById('wave-container');
-    for(let i=0; i<15; i++) {
+    for(let i=0; i<12; i++) {
         const bar = document.createElement('div');
         bar.className = 'bar';
         bar.style.animationDelay = `${i * 0.1}s`;
@@ -262,22 +236,22 @@
         localStream = stream;
         localStream.getAudioTracks()[0].enabled = false;
         document.getElementById('status-tag').innerText = "[ HARDWARE READY ]";
-    }).catch(() => {
-        document.getElementById('status-tag').innerText = "[ MIC ERROR ]";
     });
 
     function initializeComms() {
-        const val = parseFloat(document.getElementById('freq-input').value);
-        if (isNaN(val) || val < 1 || val > 100) return alert("Range: 1.000 - 100.000");
+        const inputField = document.getElementById('freq-input');
+        const val = parseFloat(inputField.value);
+        if (isNaN(val) || val < 1 || val > 100) return alert("Enter 1 - 100");
 
-        const frequency = val.toFixed(3);
-        document.getElementById('freq-display').innerText = frequency;
-        document.getElementById('peer-id-suffix').innerText = frequency;
+        const freq = val.toFixed(3);
+        document.getElementById('freq-display').innerText = freq;
+        document.getElementById('peer-id-suffix').innerText = freq;
+
+        // Dismiss keyboard on iPhone
+        inputField.blur();
 
         if (peer) peer.destroy();
-
-        // Create the connection point
-        peer = new Peer(`cyber-link-${frequency}`);
+        peer = new Peer(`cyber-link-${freq}`);
 
         peer.on('open', () => {
             document.getElementById('status-tag').innerText = "[ CHANNEL TUNED ]";
@@ -290,7 +264,7 @@
 
         peer.on('error', (err) => {
             if(err.type === 'unavailable-id') {
-                const call = peer.call(`cyber-link-${frequency}`, localStream);
+                const call = peer.call(`cyber-link-${freq}`, localStream);
                 if(call) handleAudio(call);
             }
         });
@@ -301,26 +275,25 @@
             const audio = new Audio();
             audio.srcObject = remoteStream;
             audio.play();
-            document.getElementById('status-tag').innerText = "[ DATA RECEIVING ]";
+            document.getElementById('status-tag').innerText = "[ RECEIVING SIGNAL ]";
         });
     }
 
-    // Tap to Talk Logic
+    // PTT Toggle Logic
     const pttBtn = document.getElementById('ptt-toggle');
     pttBtn.addEventListener('click', () => {
         if (!localStream) return;
-
         isLive = !isLive;
         localStream.getAudioTracks()[0].enabled = isLive;
 
         if (isLive) {
             pttBtn.classList.add('active');
-            document.getElementById('btn-text').innerText = "LIVE TRANSMIT";
-            document.getElementById('status-tag').innerText = "[ UPLOADING SIGNAL ]";
+            document.getElementById('btn-text').innerText = "LIVE AIR";
+            document.getElementById('status-tag').innerText = "[ TRANSMITTING ]";
             document.getElementById('status-tag').style.color = "var(--glow-green)";
         } else {
             pttBtn.classList.remove('active');
-            document.getElementById('btn-text').innerText = "OPEN LINK";
+            document.getElementById('btn-text').innerText = "TAP TO TALK";
             document.getElementById('status-tag').innerText = "[ CHANNEL TUNED ]";
             document.getElementById('status-tag').style.color = "var(--glow-cyan)";
         }
