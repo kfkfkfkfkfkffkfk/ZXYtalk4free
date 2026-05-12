@@ -1,214 +1,251 @@
-<!-- ADD THIS RIGHT BEFORE </body> -->
+```html
+<!-- ========= ADD THIS INSIDE .right-panel ========= -->
 
-<style>
+<div class="panel">
 
-/* ================= VIDEO FACETIME ================= */
+    <div class="panel-title">
+        FACETIME LINK
+    </div>
 
-.video-layer{
-    position:fixed;
-    inset:0;
-    z-index:200;
-    pointer-events:none;
-}
-
-.video-container{
-    position:absolute;
-    top:30px;
-    right:30px;
-
-    width:340px;
-    height:220px;
-
-    border-radius:28px;
-    overflow:hidden;
-
-    background:#000;
-
-    border:2px solid rgba(0,255,180,.2);
-
-    box-shadow:
-        0 0 40px rgba(0,255,180,.18),
-        inset 0 0 20px rgba(255,255,255,.05);
-
-    backdrop-filter:blur(20px);
-
-    transition:.25s;
-}
-
-.video-container.fullscreen{
-    width:calc(100vw - 60px);
-    height:calc(100vh - 60px);
-}
-
-.video-feed{
-    position:absolute;
-    inset:0;
-
-    width:100%;
-    height:100%;
-
-    object-fit:cover;
-    background:#000;
-}
-
-.remote-video{
-    z-index:1;
-}
-
-.local-video{
-    z-index:2;
-
-    width:120px;
-    height:160px;
-
-    right:18px;
-    bottom:18px;
-    left:auto;
-    top:auto;
-
-    border-radius:18px;
-
-    border:2px solid rgba(255,255,255,.15);
-
-    box-shadow:0 0 20px rgba(0,0,0,.5);
-}
-
-/* VIDEO CONTROLS */
-
-.video-controls{
-    display:flex;
-    gap:12px;
-    margin-top:15px;
-    flex-wrap:wrap;
-}
-
-.video-btn{
-
-    flex:1;
-
-    border:none;
-    cursor:pointer;
-
-    padding:18px;
-
-    border-radius:18px;
-
-    font-weight:800;
-    letter-spacing:2px;
-
-    background:rgba(0,255,180,.08);
-
-    color:#8cffda;
-
-    border:1px solid rgba(0,255,180,.15);
-
-    transition:.2s;
-}
-
-.video-btn:hover{
-    transform:translateY(-2px);
-
-    background:rgba(0,255,180,.16);
-}
-
-.video-btn.active{
-    background:#00ff9d;
-    color:black;
-
-    box-shadow:
-        0 0 30px rgba(0,255,150,.5);
-}
-
-/* SCREEN BLOCKER */
-
-.screen-block{
-
-    position:fixed;
-    inset:0;
-
-    background:black;
-
-    z-index:500;
-
-    display:none;
-
-    justify-content:center;
-    align-items:center;
-
-    flex-direction:column;
-}
-
-.screen-block.active{
-    display:flex;
-}
-
-.block-text{
-    color:#00ffb7;
-
-    font-size:4rem;
-    font-weight:900;
-
-    letter-spacing:8px;
-
-    text-shadow:
-        0 0 20px #00ffb7;
-}
-
-.unlock{
-    margin-top:30px;
-
-    padding:18px 30px;
-
-    border:none;
-
-    border-radius:18px;
-
-    background:#00ffb7;
-
-    color:black;
-
-    font-weight:900;
-
-    cursor:pointer;
-}
-
-</style>
-
-<!-- VIDEO UI -->
-
-<div class="video-layer">
-
-    <div class="video-container" id="videoContainer">
+    <div style="display:flex;flex-direction:column;gap:14px;">
 
         <video
             id="remoteVideo"
-            class="video-feed remote-video"
             autoplay
             playsinline
+            style="
+                width:100%;
+                border-radius:18px;
+                background:black;
+                border:2px solid rgba(0,255,170,.15);
+                display:none;
+            "
         ></video>
 
         <video
             id="localVideo"
-            class="video-feed local-video"
             autoplay
             muted
             playsinline
+            style="
+                width:140px;
+                position:absolute;
+                right:60px;
+                bottom:150px;
+                border-radius:18px;
+                border:2px solid rgba(0,255,170,.2);
+                background:black;
+                display:none;
+                z-index:20;
+            "
         ></video>
 
+        <button id="videoBtn" style="
+            padding:16px;
+            border:none;
+            border-radius:18px;
+            background:#02151a;
+            color:#91ffe0;
+            font-weight:800;
+            letter-spacing:2px;
+            cursor:pointer;
+            border:1px solid rgba(0,255,170,.15);
+        ">
+            START FACETIME
+        </button>
+
+        <button id="blackoutBtn" style="
+            padding:16px;
+            border:none;
+            border-radius:18px;
+            background:#120202;
+            color:#ff9e9e;
+            font-weight:800;
+            letter-spacing:2px;
+            cursor:pointer;
+            border:1px solid rgba(255,0,0,.2);
+        ">
+            SCREEN BLACKOUT: OFF
+        </button>
+
     </div>
 
 </div>
 
-<!-- SCREEN BLOCK -->
+<!-- ========= ADD THIS BEFORE </body> ========= -->
 
-<div class="screen-block" id="screenBlock">
+<div id="blackoutScreen" style="
+    position:fixed;
+    inset:0;
+    background:black;
+    z-index:99999;
+    display:none;
+"></div>
 
-    <div class="block-text">
-        SCREEN LOCKED
-    </div>
+<script>
 
-    <button class="unlock" id="unlockBtn">
-        UNLOCK
-    </button>
+/* =========================
+   FACETIME SYSTEM
+========================= */
 
-</div>
+let videoEnabled = false;
+let blackoutEnabled = false;
+
+const remoteVideo =
+    document.getElementById("remoteVideo");
+
+const localVideo =
+    document.getElementById("localVideo");
+
+const videoBtn =
+    document.getElementById("videoBtn");
+
+const blackoutBtn =
+    document.getElementById("blackoutBtn");
+
+const blackoutScreen =
+    document.getElementById("blackoutScreen");
+
+/* REPLACE YOUR getUserMedia SECTION WITH THIS */
+
+navigator.mediaDevices.getUserMedia({
+    audio:true,
+    video:true
+})
+
+.then(stream=>{
+
+    localStream = stream;
+
+    /* DEFAULTS */
+
+    localStream.getAudioTracks()[0].enabled = false;
+
+    localStream.getVideoTracks()[0].enabled = false;
+
+    localVideo.srcObject = localStream;
+
+    statusEl.innerText = "A/V READY";
+
+})
+
+.catch(()=>{
+
+    statusEl.innerText = "DEVICE ACCESS DENIED";
+
+});
+
+/* VIDEO TOGGLE */
+
+videoBtn.addEventListener("click", ()=>{
+
+    if(!localStream) return;
+
+    videoEnabled = !videoEnabled;
+
+    localStream.getVideoTracks()[0].enabled =
+        videoEnabled;
+
+    if(videoEnabled){
+
+        videoBtn.innerText = "STOP FACETIME";
+
+        localVideo.style.display = "block";
+
+        remoteVideo.style.display = "block";
+
+        statusEl.innerText = "VIDEO ACTIVE";
+
+        startVideoCall();
+
+    } else {
+
+        videoBtn.innerText = "START FACETIME";
+
+        localVideo.style.display = "none";
+
+        remoteVideo.style.display = "none";
+
+        statusEl.innerText = "VIDEO OFF";
+
+    }
+
+});
+
+/* BLACKOUT BUTTON */
+
+blackoutBtn.addEventListener("click", ()=>{
+
+    blackoutEnabled = !blackoutEnabled;
+
+    if(blackoutEnabled){
+
+        blackoutScreen.style.display = "block";
+
+        blackoutBtn.innerText =
+            "SCREEN BLACKOUT: ON";
+
+    } else {
+
+        blackoutScreen.style.display = "none";
+
+        blackoutBtn.innerText =
+            "SCREEN BLACKOUT: OFF";
+
+    }
+
+});
+
+/* VIDEO CALL OVER CHANNEL */
+
+function startVideoCall(){
+
+    if(!peer || !localStream) return;
+
+    const channel =
+        "OMEGA-" +
+        input.value.replace(".","-");
+
+    const call =
+        peer.call(channel, localStream);
+
+    if(call){
+
+        call.on("stream",(remoteStream)=>{
+
+            remoteVideo.srcObject = remoteStream;
+
+        });
+
+    }
+
+}
+
+/* MODIFY YOUR EXISTING peer.on("call") */
+
+peer.on("call",(call)=>{
+
+    call.answer(localStream);
+
+    call.on("stream",(remoteStream)=>{
+
+        /* AUDIO */
+
+        const audio = new Audio();
+
+        audio.srcObject = remoteStream;
+
+        audio.play();
+
+        /* VIDEO */
+
+        remoteVideo.srcObject = remoteStream;
+
+        remoteVideo.style.display = "block";
+
+    });
+
+});
+
+</script>
+```
