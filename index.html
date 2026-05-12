@@ -1,165 +1,432 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro-Spec Walkie & FM Radio</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        body { font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a1a; color: #00ff00; margin: 0; }
-        .device { border: 4px solid #444; padding: 20px; border-radius: 30px; background: #2c2c2c; box-shadow: 0 0 30px #000; text-align: center; width: 320px; border-bottom: 15px solid #222; }
-        #status { font-size: 0.7rem; margin-bottom: 10px; color: #ffcc00; height: 15px; text-transform: uppercase; }
-        .screen { background: #003300; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 3px inset #111; color: #0f0; }
-        .display-label { font-size: 0.6rem; display: block; text-align: left; opacity: 0.7; }
-        .freq-display { font-size: 1.6rem; font-weight: bold; margin: 5px 0; min-height: 40px; display: flex; align-items: center; justify-content: center;}
-        
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        label { font-size: 0.65rem; color: #aaa; display: block; margin-bottom: 4px; }
-        
-        /* Dropdown Styling */
-        select { background: #000; color: #0f0; border: 1px solid #333; padding: 8px; width: 100%; text-align: center; font-size: 0.9rem; border-radius: 4px; cursor: pointer; outline: none; }
-        
-        /* Toggle Button Styling */
-        .ptt-btn { width: 110px; height: 110px; border-radius: 50%; border: 5px solid #600; background: radial-gradient(#c00, #800); color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px #400; margin: 10px; transition: 0.2s; font-size: 0.8rem; }
-        .ptt-btn.active { background: radial-gradient(#0f0, #080); border-color: #040; box-shadow: 0 0 15px #0f0; color: #000; transform: translateY(2px); }
-        
-        .mode-btn { width: 100%; padding: 10px; background: #444; border: 1px solid #555; color: white; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; border-radius: 5px; }
-        .active-mode { background: #008800 !important; color: white !important; box-shadow: inset 0 0 10px #0f0; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tactical Comm-Link</title>
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+    font-family:Arial, Helvetica, sans-serif;
+    background:
+        radial-gradient(circle at top,#1d2935 0%,#0b0f14 40%,#000 100%);
+    color:white;
+}
+
+/* animated background glow */
+body::before{
+    content:"";
+    position:absolute;
+    width:700px;
+    height:700px;
+    background:radial-gradient(circle,#00ffae22 0%,transparent 70%);
+    animation:pulse 6s infinite;
+}
+
+@keyframes pulse{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.15);}
+    100%{transform:scale(1);}
+}
+
+.device{
+    position:relative;
+    width:380px;
+    padding:25px;
+    border-radius:40px;
+    background:
+        linear-gradient(145deg,#1f242b,#0a0d11);
+    border:3px solid #2f3a45;
+    box-shadow:
+        0 30px 80px rgba(0,0,0,.9),
+        inset 0 0 30px rgba(255,255,255,.03),
+        0 0 25px rgba(0,255,170,.15);
+}
+
+.device::before{
+    content:"";
+    position:absolute;
+    top:-18px;
+    left:50%;
+    transform:translateX(-50%);
+    width:120px;
+    height:20px;
+    border-radius:10px 10px 0 0;
+    background:#111;
+    box-shadow:0 4px 10px #000;
+}
+
+/* top lights */
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:18px;
+}
+
+.signal{
+    display:flex;
+    gap:5px;
+}
+
+.signal span{
+    width:8px;
+    border-radius:2px;
+    background:#00ff99;
+    box-shadow:0 0 8px #00ff99;
+}
+
+.signal span:nth-child(1){height:10px;}
+.signal span:nth-child(2){height:16px;}
+.signal span:nth-child(3){height:22px;}
+.signal span:nth-child(4){height:28px;}
+
+.status{
+    font-size:.7rem;
+    letter-spacing:2px;
+    color:#00ffb7;
+    text-shadow:0 0 10px #00ffb7;
+}
+
+.screen{
+    position:relative;
+    overflow:hidden;
+    background:
+        linear-gradient(180deg,#02160f,#041b18 50%,#02120d);
+    border:4px solid #0d0d0d;
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:22px;
+    box-shadow:
+        inset 0 0 30px rgba(0,255,170,.2),
+        0 0 20px rgba(0,255,170,.15);
+}
+
+.screen::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:
+        repeating-linear-gradient(
+            to bottom,
+            rgba(255,255,255,.03),
+            rgba(255,255,255,.03) 2px,
+            transparent 2px,
+            transparent 4px
+        );
+    pointer-events:none;
+}
+
+.mode{
+    font-size:.7rem;
+    letter-spacing:3px;
+    color:#65ffc8;
+    opacity:.8;
+}
+
+.display{
+    margin-top:10px;
+    font-size:3rem;
+    font-weight:900;
+    color:#8dffd6;
+    text-shadow:
+        0 0 10px #00ffb7,
+        0 0 25px #00ffb7;
+}
+
+.sub{
+    margin-top:8px;
+    font-size:.75rem;
+    letter-spacing:2px;
+    color:#56ffb4;
+}
+
+.input-wrap{
+    margin-bottom:25px;
+}
+
+label{
+    display:block;
+    margin-bottom:8px;
+    font-size:.75rem;
+    color:#9aa4af;
+    letter-spacing:1px;
+}
+
+input{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#0a0f14;
+    color:#00ffae;
+    font-size:1rem;
+    text-align:center;
+    outline:none;
+    border:2px solid #1d2a34;
+    box-shadow:
+        inset 0 0 15px rgba(0,0,0,.8),
+        0 0 10px rgba(0,255,170,.08);
+}
+
+input:focus{
+    border-color:#00ffae;
+    box-shadow:
+        0 0 15px rgba(0,255,170,.45);
+}
+
+.ptt-container{
+    display:flex;
+    justify-content:center;
+    margin-top:15px;
+}
+
+.ptt{
+    position:relative;
+    width:170px;
+    height:170px;
+    border-radius:50%;
+    border:none;
+    cursor:pointer;
+    font-size:1.1rem;
+    font-weight:900;
+    letter-spacing:2px;
+    color:white;
+
+    background:
+        radial-gradient(circle at top,#ff4b4b,#7c0000);
+
+    box-shadow:
+        inset 0 -10px 20px rgba(0,0,0,.45),
+        0 12px 25px rgba(0,0,0,.7),
+        0 0 25px rgba(255,0,0,.25);
+
+    transition:.12s;
+}
+
+.ptt::before{
+    content:"";
+    position:absolute;
+    inset:10px;
+    border-radius:50%;
+    border:2px solid rgba(255,255,255,.15);
+}
+
+.ptt:hover{
+    transform:scale(1.03);
+}
+
+.ptt:active{
+    transform:translateY(5px);
+}
+
+.ptt.active{
+    background:
+        radial-gradient(circle at top,#5cff8d,#00a94f);
+
+    color:#001b0e;
+
+    box-shadow:
+        inset 0 -10px 20px rgba(0,0,0,.35),
+        0 0 40px rgba(0,255,140,.8),
+        0 0 80px rgba(0,255,140,.4);
+}
+
+.bottom{
+    margin-top:25px;
+    display:flex;
+    justify-content:space-between;
+    font-size:.7rem;
+    color:#5d6873;
+    letter-spacing:2px;
+}
+
+.dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:#00ff99;
+    box-shadow:0 0 10px #00ff99;
+    animation:blink 1s infinite;
+}
+
+@keyframes blink{
+    50%{opacity:.3;}
+}
+
+</style>
 </head>
 <body>
 
-    <div class="device">
-        <div id="status">INITIALIZING...</div>
-        
-        <div class="screen">
-            <span class="display-label" id="mode-name">WALKIE MODE</span>
-            <div class="freq-display" id="main-display">CH-01</div>
-            <span class="display-label" id="sub-display">READY TO SCAN</span>
+<div class="device">
+
+    <div class="topbar">
+        <div class="signal">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
         </div>
 
-        <div class="controls">
-            <div>
-                <label>WT CHANNEL</label>
-                <select id="wt-selector" onchange="updateWT()">
-                    </select>
-            </div>
-            <div>
-                <label>RADIO TOWER</label>
-                <select id="fm-selector" onchange="updateFM()">
-                    <option value="90.1">90.1 Synth</option>
-                    <option value="94.5">94.5 Classics</option>
-                    <option value="102.7">102.7 Lo-Fi</option>
-                    <option value="107.9">107.9 Jazz</option>
-                </select>
-            </div>
+        <div class="status" id="status">
+            STANDBY
         </div>
 
-        <button class="ptt-btn" id="ptt-button" onclick="toggleTalk()">MIC OFF</button>
+        <div class="dot"></div>
+    </div>
 
-        <div style="display: flex; gap: 5px;">
-            <button id="btn-wt" class="mode-btn active-mode" onclick="setMode('WT')">Walkie</button>
-            <button id="btn-fm" class="mode-btn" onclick="setMode('FM')">Radio</button>
+    <div class="screen">
+        <div class="mode">
+            SECURE COMMUNICATION
+        </div>
+
+        <div class="display" id="main-display">
+            CH-00
+        </div>
+
+        <div class="sub" id="sub-display">
+            ENCRYPTION ACTIVE
         </div>
     </div>
 
-    <audio id="radio-player" preload="none" loop></audio>
+    <div class="input-wrap">
+        <label>ENTER CHANNEL ID</label>
+        <input
+            type="text"
+            id="wt-input"
+            placeholder="ex: alpha7"
+            onchange="updateWT()"
+        />
+    </div>
 
-    <script>
-        let peer = null;
-        let localStream = null;
-        let currentMode = 'WT';
-        let isTalking = false;
+    <div class="ptt-container">
+        <button class="ptt" id="ptt-button" onclick="toggleTalk()">
+            PUSH<br>TO TALK
+        </button>
+    </div>
 
-        // Map different numbers to different streams
-        const stations = {
-            "90.1": "https://stream.nightride.fm/nightride.mp3",
-            "94.5": "http://icecast.walmradio.com:8000/classic",
-            "102.7": "https://stream.syntheticfm.com/1",
-            "107.9": "https://icecast.walmradio.com:8000/jazz"
-        };
+    <div class="bottom">
+        <span>TAC-LINK V4</span>
+        <span>ONLINE</span>
+    </div>
 
-        const radioPlayer = document.getElementById('radio-player');
-        const mainDisplay = document.getElementById('main-display');
-        const pttBtn = document.getElementById('ptt-button');
-        const wtSelect = document.getElementById('wt-selector');
+</div>
 
-        // Populate 99 Walkie Channels
-        for(let i=1; i<=99; i++) {
-            let opt = document.createElement('option');
-            opt.value = i;
-            opt.innerHTML = "CH-" + i.toString().padStart(2, '0');
-            wtSelect.appendChild(opt);
-        }
+<script>
 
-        // Initialize Audio
-        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            localStream = stream;
-            localStream.getAudioTracks()[0].enabled = false;
-            updateWT(); 
-        }).catch(() => { document.getElementById('status').innerText = "ERROR: MIC DENIED"; });
+let peer = null;
+let localStream = null;
+let currentCall = null;
+let isTalking = false;
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('btn-wt').classList.toggle('active-mode', mode === 'WT');
-            document.getElementById('btn-fm').classList.toggle('active-mode', mode === 'FM');
-            
-            if (mode === 'FM') {
-                if(isTalking) toggleTalk(); // Turn off mic if switching to radio
-                updateFM();
-            } else {
-                radioPlayer.pause();
-                updateWT();
-            }
-        }
+const statusEl = document.getElementById('status');
+const mainDisplay = document.getElementById('main-display');
+const pttBtn = document.getElementById('ptt-button');
+const wtInput = document.getElementById('wt-input');
 
-        function updateWT() {
-            const ch = wtSelect.value.padStart(2, '0');
-            if(currentMode === 'WT') {
-                mainDisplay.innerText = "CH-" + ch;
-                document.getElementById('mode-name').innerText = "WALKIE MODE";
-            }
-            if (peer) peer.destroy();
-            peer = new Peer("G-WT-CH-" + ch + "-" + Math.floor(Math.random() * 100));
-            peer.on('open', () => { document.getElementById('status').innerText = "ONLINE: CH " + ch; });
-            peer.on('call', (call) => {
-                call.answer(localStream);
-                call.on('stream', (remoteStream) => {
-                    const audio = new Audio();
-                    audio.srcObject = remoteStream;
-                    audio.play();
-                });
-            });
-        }
+/* MIC ACCESS */
 
-        function updateFM() {
-            const freq = document.getElementById('fm-selector').value;
-            if(currentMode === 'FM') {
-                mainDisplay.innerText = freq + " MHz";
-                document.getElementById('mode-name').innerText = "RADIO TOWER";
-                radioPlayer.src = stations[freq];
-                radioPlayer.play();
-            }
-        }
+navigator.mediaDevices.getUserMedia({ audio: true })
+.then(stream => {
 
-        function toggleTalk() {
-            if (!localStream) return;
-            
-            isTalking = !isTalking;
-            localStream.getAudioTracks()[0].enabled = isTalking;
+    localStream = stream;
+    localStream.getAudioTracks()[0].enabled = false;
 
-            if (isTalking) {
-                pttBtn.classList.add('active');
-                pttBtn.innerText = "MIC ON";
-                document.getElementById('status').innerText = "TRANSMITTING...";
-                if (currentMode === 'FM') radioPlayer.volume = 0.2; // Dim radio if talking
-            } else {
-                pttBtn.classList.remove('active');
-                pttBtn.innerText = "MIC OFF";
-                document.getElementById('status').innerText = "STANDBY";
-                radioPlayer.volume = 1.0;
-            }
-        }
-    </script>
+    statusEl.innerText = "MIC CONNECTED";
+
+})
+.catch(() => {
+
+    statusEl.innerText = "MIC ACCESS DENIED";
+
+});
+
+/* CHANNEL SYSTEM */
+
+function updateWT(){
+
+    const val = wtInput.value.trim() || "00";
+
+    mainDisplay.innerText = "CH-" + val.toUpperCase();
+
+    if(peer){
+        peer.destroy();
+    }
+
+    peer = new Peer(
+        "TACTICAL-" +
+        val.toLowerCase().replace(/\s+/g,'-')
+    );
+
+    peer.on('open', () => {
+
+        statusEl.innerText = "LINKED TO " + val.toUpperCase();
+
+    });
+
+    peer.on('call', (call) => {
+
+        call.answer(localStream);
+
+        call.on('stream', (remoteStream) => {
+
+            const audio = new Audio();
+
+            audio.srcObject = remoteStream;
+            audio.play();
+
+        });
+
+    });
+
+}
+
+/* PUSH TO TALK */
+
+function toggleTalk(){
+
+    if(!localStream) return;
+
+    isTalking = !isTalking;
+
+    localStream.getAudioTracks()[0].enabled = isTalking;
+
+    if(isTalking){
+
+        pttBtn.classList.add('active');
+
+        pttBtn.innerHTML = "LIVE<br>TX";
+
+        statusEl.innerText = "TRANSMITTING";
+
+    } else {
+
+        pttBtn.classList.remove('active');
+
+        pttBtn.innerHTML = "PUSH<br>TO TALK";
+
+        statusEl.innerText = "STANDBY";
+
+    }
+
+}
+
+updateWT();
+
+</script>
+
 </body>
 </html>
