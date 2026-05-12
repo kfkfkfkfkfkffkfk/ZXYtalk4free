@@ -8,19 +8,22 @@
     <style>
         body { font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a1a; color: #00ff00; margin: 0; }
         .device { border: 4px solid #444; padding: 20px; border-radius: 30px; background: #2c2c2c; box-shadow: 0 0 30px #000; text-align: center; width: 320px; border-bottom: 15px solid #222; }
-        #status { font-size: 0.7rem; margin-bottom: 10px; color: #ffcc00; height: 15px; }
+        #status { font-size: 0.7rem; margin-bottom: 10px; color: #ffcc00; height: 15px; text-transform: uppercase; }
         .screen { background: #003300; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 3px inset #111; color: #0f0; }
         .display-label { font-size: 0.6rem; display: block; text-align: left; opacity: 0.7; }
-        .freq-display { font-size: 1.8rem; font-weight: bold; margin: 5px 0; }
+        .freq-display { font-size: 1.6rem; font-weight: bold; margin: 5px 0; min-height: 40px; display: flex; align-items: center; justify-content: center;}
         
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        label { font-size: 0.7rem; color: #aaa; }
-        input[type="number"] { background: #000; color: #0f0; border: 1px solid #333; padding: 8px; width: 80%; text-align: center; font-size: 1rem; border-radius: 4px; }
+        label { font-size: 0.65rem; color: #aaa; display: block; margin-bottom: 4px; }
         
-        .ptt-btn { width: 100px; height: 100px; border-radius: 50%; border: 5px solid #600; background: radial-gradient(#c00, #800); color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px #400; margin: 10px; transition: 0.1s; }
-        .ptt-btn:active { box-shadow: 0 2px #400; transform: translateY(4px); filter: brightness(1.2); }
+        /* Dropdown Styling */
+        select { background: #000; color: #0f0; border: 1px solid #333; padding: 8px; width: 100%; text-align: center; font-size: 0.9rem; border-radius: 4px; cursor: pointer; outline: none; }
         
-        .mode-btn { width: 100%; padding: 10px; background: #444; border: 1px solid #555; color: white; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; }
+        /* Toggle Button Styling */
+        .ptt-btn { width: 110px; height: 110px; border-radius: 50%; border: 5px solid #600; background: radial-gradient(#c00, #800); color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px #400; margin: 10px; transition: 0.2s; font-size: 0.8rem; }
+        .ptt-btn.active { background: radial-gradient(#0f0, #080); border-color: #040; box-shadow: 0 0 15px #0f0; color: #000; transform: translateY(2px); }
+        
+        .mode-btn { width: 100%; padding: 10px; background: #444; border: 1px solid #555; color: white; cursor: pointer; font-size: 0.8rem; text-transform: uppercase; border-radius: 5px; }
         .active-mode { background: #008800 !important; color: white !important; box-shadow: inset 0 0 10px #0f0; }
     </style>
 </head>
@@ -30,56 +33,71 @@
         <div id="status">INITIALIZING...</div>
         
         <div class="screen">
-            <span class="display-label" id="mode-name">COMM CHANNEL</span>
+            <span class="display-label" id="mode-name">WALKIE MODE</span>
             <div class="freq-display" id="main-display">CH-01</div>
-            <span class="display-label" id="sub-display">SIGNAL: CLEAR</span>
+            <span class="display-label" id="sub-display">READY TO SCAN</span>
         </div>
 
         <div class="controls">
             <div>
                 <label>WT CHANNEL</label>
-                <input type="number" id="wt-ch" value="1" min="1" max="99" onchange="updateWT()">
+                <select id="wt-selector" onchange="updateWT()">
+                    </select>
             </div>
             <div>
-                <label>FM FREQ</label>
-                <input type="number" id="fm-freq" value="90.1" step="0.2" min="88.0" max="108.0" onchange="updateFM()">
+                <label>RADIO TOWER</label>
+                <select id="fm-selector" onchange="updateFM()">
+                    <option value="90.1">90.1 Synth</option>
+                    <option value="94.5">94.5 Classics</option>
+                    <option value="102.7">102.7 Lo-Fi</option>
+                    <option value="107.9">107.9 Jazz</option>
+                </select>
             </div>
         </div>
 
-        <button class="ptt-btn" id="ptt-button">PUSH TO TALK</button>
+        <button class="ptt-btn" id="ptt-button" onclick="toggleTalk()">MIC OFF</button>
 
         <div style="display: flex; gap: 5px;">
             <button id="btn-wt" class="mode-btn active-mode" onclick="setMode('WT')">Walkie</button>
-            <button id="btn-fm" class="mode-btn" onclick="setMode('FM')">FM Radio</button>
+            <button id="btn-fm" class="mode-btn" onclick="setMode('FM')">Radio</button>
         </div>
     </div>
 
-    <audio id="radio-player" preload="none"></audio>
+    <audio id="radio-player" preload="none" loop></audio>
 
     <script>
         let peer = null;
         let localStream = null;
-        let currentMode = 'WT'; // 'WT' or 'FM'
-        
-        // FM Stations Mapping
+        let currentMode = 'WT';
+        let isTalking = false;
+
+        // Map different numbers to different streams
         const stations = {
             "90.1": "https://stream.nightride.fm/nightride.mp3",
-            "94.5": "https://icecast.walmradio.com:8000/classic",
+            "94.5": "http://icecast.walmradio.com:8000/classic",
             "102.7": "https://stream.syntheticfm.com/1",
-            "default": "https://stream.nightride.fm/chillsynth.mp3"
+            "107.9": "https://icecast.walmradio.com:8000/jazz"
         };
 
         const radioPlayer = document.getElementById('radio-player');
         const mainDisplay = document.getElementById('main-display');
+        const pttBtn = document.getElementById('ptt-button');
+        const wtSelect = document.getElementById('wt-selector');
 
-        // Initial Mic Access
+        // Populate 99 Walkie Channels
+        for(let i=1; i<=99; i++) {
+            let opt = document.createElement('option');
+            opt.value = i;
+            opt.innerHTML = "CH-" + i.toString().padStart(2, '0');
+            wtSelect.appendChild(opt);
+        }
+
+        // Initialize Audio
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
             localStream = stream;
             localStream.getAudioTracks()[0].enabled = false;
-            updateWT(); // Start WT by default
-        }).catch(err => {
-            document.getElementById('status').innerText = "MIC ACCESS DENIED";
-        });
+            updateWT(); 
+        }).catch(() => { document.getElementById('status').innerText = "ERROR: MIC DENIED"; });
 
         function setMode(mode) {
             currentMode = mode;
@@ -87,6 +105,7 @@
             document.getElementById('btn-fm').classList.toggle('active-mode', mode === 'FM');
             
             if (mode === 'FM') {
+                if(isTalking) toggleTalk(); // Turn off mic if switching to radio
                 updateFM();
             } else {
                 radioPlayer.pause();
@@ -95,21 +114,14 @@
         }
 
         function updateWT() {
-            const ch = document.getElementById('wt-ch').value.padStart(2, '0');
+            const ch = wtSelect.value.padStart(2, '0');
             if(currentMode === 'WT') {
                 mainDisplay.innerText = "CH-" + ch;
-                document.getElementById('mode-name').innerText = "COMM CHANNEL";
+                document.getElementById('mode-name').innerText = "WALKIE MODE";
             }
-
             if (peer) peer.destroy();
-            
-            // Connect to a channel based strictly on the number
-            peer = new Peer("GLOBAL-WT-CH-" + ch + "-" + Math.floor(Math.random() * 100));
-
-            peer.on('open', (id) => {
-                document.getElementById('status').innerText = "CONNECTED TO CH " + ch;
-            });
-
+            peer = new Peer("G-WT-CH-" + ch + "-" + Math.floor(Math.random() * 100));
+            peer.on('open', () => { document.getElementById('status').innerText = "ONLINE: CH " + ch; });
             peer.on('call', (call) => {
                 call.answer(localStream);
                 call.on('stream', (remoteStream) => {
@@ -121,42 +133,33 @@
         }
 
         function updateFM() {
-            const freq = document.getElementById('fm-freq').value;
+            const freq = document.getElementById('fm-selector').value;
             if(currentMode === 'FM') {
-                mainDisplay.innerText = parseFloat(freq).toFixed(1) + " MHz";
-                document.getElementById('mode-name').innerText = "FM RADIO RECEIVER";
-                
-                // Change stream based on frequency
-                const source = stations[freq] || stations['default'];
-                radioPlayer.src = source;
+                mainDisplay.innerText = freq + " MHz";
+                document.getElementById('mode-name').innerText = "RADIO TOWER";
+                radioPlayer.src = stations[freq];
                 radioPlayer.play();
             }
         }
 
-        // PTT Logic
-        const pttBtn = document.getElementById('ptt-button');
-        
-        const startTalking = () => {
-            if (localStream && currentMode === 'WT') {
-                localStream.getAudioTracks()[0].enabled = true;
-                document.getElementById('status').innerText = ">>> TRANSMITTING <<<";
-                document.getElementById('status').style.color = "#ff0000";
+        function toggleTalk() {
+            if (!localStream) return;
+            
+            isTalking = !isTalking;
+            localStream.getAudioTracks()[0].enabled = isTalking;
+
+            if (isTalking) {
+                pttBtn.classList.add('active');
+                pttBtn.innerText = "MIC ON";
+                document.getElementById('status').innerText = "TRANSMITTING...";
+                if (currentMode === 'FM') radioPlayer.volume = 0.2; // Dim radio if talking
+            } else {
+                pttBtn.classList.remove('active');
+                pttBtn.innerText = "MIC OFF";
+                document.getElementById('status').innerText = "STANDBY";
+                radioPlayer.volume = 1.0;
             }
-        };
-
-        const stopTalking = () => {
-            if (localStream) {
-                localStream.getAudioTracks()[0].enabled = false;
-                document.getElementById('status').innerText = "CONNECTED TO CH " + document.getElementById('wt-ch').value;
-                document.getElementById('status').style.color = "#ffcc00";
-            }
-        };
-
-        pttBtn.addEventListener('mousedown', startTalking);
-        pttBtn.addEventListener('mouseup', stopTalking);
-        pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalking(); });
-        pttBtn.addEventListener('touchend', stopTalking);
-
+        }
     </script>
 </body>
 </html>
