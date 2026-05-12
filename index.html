@@ -3,90 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Walkie-Talkie</title>
+    <title>Global Walkie-Talkie & Radio</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #222; color: white; }
-        #status { margin-bottom: 20px; color: #0f0; }
-        .btn { width: 150px; height: 150px; border-radius: 50%; border: none; background: #e74c3c; color: white; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 5px #c0392b; }
-        .btn:active { box-shadow: 0 2px #c0392b; transform: translateY(3px); background: #ff5e4d; }
-        input { padding: 10px; border-radius: 5px; border: none; margin: 10px; }
+        body { font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a1a; color: #00ff00; margin: 0; }
+        .device { border: 4px solid #333; padding: 20px; border-radius: 20px; background: #2c2c2c; box-shadow: 0 0 20px #000; text-align: center; width: 300px; }
+        #status { font-size: 0.8rem; margin-bottom: 10px; color: #ffcc00; }
+        .screen { background: #004400; padding: 10px; border-radius: 5px; margin-bottom: 20px; border: 2px inset #222; }
+        input { background: #000; color: #0f0; border: 1px solid #0f0; padding: 5px; width: 80%; margin: 5px; text-align: center; }
+        .ptt-btn { width: 120px; height: 120px; border-radius: 50%; border: 4px solid #800; background: #c00; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 6px #600; margin: 15px; }
+        .ptt-btn:active { box-shadow: 0 2px #600; transform: translateY(4px); background: #f00; }
+        .mode-toggle { font-size: 0.7rem; margin-top: 10px; cursor: pointer; background: #444; border: none; color: white; padding: 5px; }
+        .active-mode { background: #00ff00 !important; color: black !important; }
     </style>
 </head>
 <body>
 
-    <h2>Walkie-Talkie</h2>
-    <div id="status">Status: Initializing...</div>
-    
-    <p>Your ID: <span id="my-id">...</span></p>
-    
-    <input type="text" id="remote-id" placeholder="Enter Friend's ID">
-    <button onclick="connectToFriend()">Connect</button>
+    <div class="device">
+        <div id="status">OFFLINE</div>
+        <div class="screen">
+            CH: <input type="text" id="channel-input" placeholder="Enter Channel Name" value="Public-1">
+            <button onclick="joinChannel()">SET CHANNEL</button>
+        </div>
 
-    <br><br>
-    <button class="btn" id="ptt-button">HOLD TO TALK</button>
+        <button class="ptt-btn" id="ptt-button">PUSH TO TALK</button>
+
+        <div style="margin-top: 10px;">
+            <button id="radio-toggle" class="mode-toggle" onclick="toggleRadio()">RADIO MODE: OFF</button>
+        </div>
+    </div>
+
+    <audio id="radio-player" src="https://stream.nightride.fm/nightride.mp3" preload="none"></audio>
 
     <script>
-        const peer = new Peer(); 
-        let currentCall = null;
+        let peer = null;
         let localStream = null;
+        let radioActive = false;
+        const radioPlayer = document.getElementById('radio-player');
 
-        // Get microphone access
+        // Setup Audio
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
             localStream = stream;
-            // Keep mic "muted" until button is pressed
             localStream.getAudioTracks()[0].enabled = false;
         });
 
-        peer.on('open', (id) => {
-            document.getElementById('my-id').innerText = id;
-            document.getElementById('status').innerText = "Status: Ready";
-        });
+        function joinChannel() {
+            const channel = document.getElementById('channel-input').value;
+            if (!channel) return alert("Enter a channel name!");
 
-        // Handle incoming calls
-        peer.on('call', (call) => {
-            call.answer(localStream);
-            handleCall(call);
-        });
+            if (peer) peer.destroy();
 
-        function connectToFriend() {
-            const friendId = document.getElementById('remote-id').value;
-            if (friendId) {
-                const call = peer.call(friendId, localStream);
-                handleCall(call);
-            }
-        }
+            // We use a prefix so people don't accidentally connect to random PeerJS users
+            // Note: In a real app, you'd use a backend to list users. 
+            // Here, you must share your specific ID with friends to "Call" them into the channel.
+            peer = new Peer("WT-" + channel + "-" + Math.floor(Math.random() * 1000));
 
-        function handleCall(call) {
-            call.on('stream', (remoteStream) => {
-                const audio = new Audio();
-                audio.srcObject = remoteStream;
-                audio.play();
-                document.getElementById('status').innerText = "Status: Connected";
+            peer.on('open', (id) => {
+                document.getElementById('status').innerText = "ONLINE: " + id;
+            });
+
+            peer.on('call', (call) => {
+                call.answer(localStream);
+                call.on('stream', (remoteStream) => {
+                    const audio = new Audio();
+                    audio.srcObject = remoteStream;
+                    audio.play();
+                });
             });
         }
 
-        // Push-to-Talk Logic
-        const btn = document.getElementById('ptt-button');
+        // Radio Logic
+        function toggleRadio() {
+            radioActive = !radioActive;
+            const btn = document.getElementById('radio-toggle');
+            if (radioActive) {
+                radioPlayer.play();
+                btn.innerText = "RADIO MODE: ON";
+                btn.classList.add('active-mode');
+            } else {
+                radioPlayer.pause();
+                btn.innerText = "RADIO MODE: OFF";
+                btn.classList.remove('active-mode');
+            }
+        }
+
+        // PTT Logic
+        const pttBtn = document.getElementById('ptt-button');
         
-        btn.addEventListener('mousedown', () => {
-            if (localStream) localStream.getAudioTracks()[0].enabled = true;
-            btn.style.background = "#2ecc71";
-        });
+        const startTalking = () => {
+            if (localStream) {
+                localStream.getAudioTracks()[0].enabled = true;
+                if (radioActive) radioPlayer.volume = 0.1; // Duck radio volume while talking
+            }
+        };
 
-        btn.addEventListener('mouseup', () => {
-            if (localStream) localStream.getAudioTracks()[0].enabled = false;
-            btn.style.background = "#e74c3c";
-        });
+        const stopTalking = () => {
+            if (localStream) {
+                localStream.getAudioTracks()[0].enabled = false;
+                if (radioActive) radioPlayer.volume = 1.0;
+            }
+        };
 
-        // Touch support for mobile
-        btn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (localStream) localStream.getAudioTracks()[0].enabled = true;
-        });
-        btn.addEventListener('touchend', () => {
-            if (localStream) localStream.getAudioTracks()[0].enabled = false;
-        });
+        pttBtn.addEventListener('mousedown', startTalking);
+        pttBtn.addEventListener('mouseup', stopTalking);
+        pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalking(); });
+        pttBtn.addEventListener('touchend', stopTalking);
+
     </script>
 </body>
 </html>
