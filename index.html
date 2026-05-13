@@ -2,22 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>NEURAL-LINK | Tactical Comms</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
     <style>
         :root {
             --glow-cyan: #00f2ff;
             --glow-green: #00ff9d;
+            --glow-red: #ff4466;
             --dark-bg: #030508;
             --panel-border: rgba(0, 242, 255, 0.3);
         }
 
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
             margin: 0;
@@ -25,14 +23,12 @@
             background: var(--dark-bg);
             color: white;
             font-family: 'Orbitron', sans-serif;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            overflow: hidden;
-            /* Prevents weird iOS bounce */
-            position: fixed; 
-            width: 100%;
+            /* REMOVED position:fixed — that's what blocks iOS keyboard from pushing the viewport */
+            overflow-x: hidden;
         }
 
         .bg-overlay {
@@ -43,25 +39,24 @@
                 linear-gradient(90deg, rgba(0, 242, 255, 0.05) 1px, transparent 1px);
             background-size: 30px 30px;
             z-index: -1;
+            pointer-events: none;
         }
 
         .comm-deck {
             width: 90vw;
             max-width: 450px;
-            height: 85vh;
-            max-height: 800px;
-            background: rgba(10, 15, 20, 0.9);
+            background: rgba(10, 15, 20, 0.95);
             border: 2px solid var(--panel-border);
             border-radius: 30px;
             display: flex;
             flex-direction: column;
             padding: 25px;
-            box-shadow: 0 0 50px rgba(0,0,0,1);
-            position: relative;
+            box-shadow: 0 0 60px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05);
+            margin: 20px auto;
         }
 
         .deck-header {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             letter-spacing: 4px;
             color: var(--glow-cyan);
             margin-bottom: 20px;
@@ -73,15 +68,22 @@
 
         .screen-module {
             background: #000;
-            flex-grow: 1;
             border-radius: 15px;
             border: 1px solid #1a252b;
             padding: 20px;
             display: flex;
             flex-direction: column;
-            justify-content: space-around;
+            gap: 12px;
             position: relative;
             overflow: hidden;
+        }
+
+        .screen-module::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,242,255,0.03) 0%, transparent 100%);
+            pointer-events: none;
         }
 
         .signal-wave {
@@ -94,93 +96,209 @@
 
         .bar {
             width: 3px;
-            height: 10px;
+            height: 5px;
             background: var(--glow-cyan);
-            animation: bounce 1s infinite ease-in-out;
+            border-radius: 2px;
+            animation: bounce 1.2s infinite ease-in-out;
+            opacity: 0.3;
+        }
+
+        .bar.active-wave {
+            opacity: 1;
+            animation: bounce 0.6s infinite ease-in-out;
         }
 
         .freq-readout {
-            font-size: clamp(2rem, 8vw, 3.5rem);
+            font-size: clamp(2.2rem, 9vw, 3.5rem);
             font-weight: 700;
             text-align: center;
             color: #fff;
-            text-shadow: 0 0 20px var(--glow-cyan);
+            text-shadow: 0 0 20px var(--glow-cyan), 0 0 40px rgba(0,242,255,0.3);
+            letter-spacing: 2px;
+        }
+
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #status-tag {
+            font-size: 0.58rem;
+            color: var(--glow-cyan);
+            letter-spacing: 2px;
+        }
+
+        .enc-badge {
+            font-size: 0.5rem;
+            letter-spacing: 1px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            color: #555;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .enc-badge.armed {
+            border-color: var(--glow-green);
+            color: var(--glow-green);
+            box-shadow: 0 0 8px rgba(0,255,157,0.3);
         }
 
         .control-panel {
-            margin-top: 25px;
+            margin-top: 20px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
         }
 
-        .input-wrapper {
+        /* ── CHANNEL INPUT ── */
+        .input-group {
             display: flex;
-            background: rgba(255,255,255,0.05);
-            padding: 5px;
-            border-radius: 12px;
-            border: 1px solid #444;
-            /* Ensures it stays above other layers for clicking */
-            position: relative;
-            z-index: 10; 
+            flex-direction: column;
+            gap: 6px;
         }
 
-        /* CRITICAL iOS FIX: type="text" + inputmode="decimal" + 16px font */
+        .input-label {
+            font-size: 0.5rem;
+            letter-spacing: 3px;
+            color: #555;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* THE FIX: native <input type="number"> on a non-fixed body with font-size>=16px */
         input#freq-input {
-            flex-grow: 1;
-            background: transparent;
-            border: none;
+            flex: 1;
+            background: rgba(0, 242, 255, 0.05);
+            border: 1px solid rgba(0, 242, 255, 0.25);
+            border-radius: 10px;
             color: var(--glow-cyan);
             font-family: 'JetBrains Mono', monospace;
-            font-size: 18px; /* Force 18px to prevent iOS zoom-freeze */
-            padding: 12px;
+            font-size: 18px;       /* ≥16px prevents iOS auto-zoom which causes freeze */
+            padding: 14px 16px;
             outline: none;
             text-align: center;
-            -webkit-user-select: text; /* Force enable typing */
-            user-select: text;
-            pointer-events: auto;
+            width: 100%;
+            /* These are critical for iOS to actually allow text entry */
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
         }
 
-        .set-btn {
-            background: var(--glow-cyan);
+        input#freq-input::placeholder { color: rgba(0,242,255,0.3); }
+        input#freq-input:focus {
+            border-color: var(--glow-cyan);
+            box-shadow: 0 0 12px rgba(0,242,255,0.2);
+        }
+
+        /* ── PASSPHRASE (encryption key) ── */
+        input#key-input {
+            flex: 1;
+            background: rgba(0, 255, 157, 0.03);
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            border-radius: 10px;
+            color: var(--glow-green);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 16px;
+            padding: 14px 16px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: manipulation;
+            letter-spacing: 2px;
+        }
+
+        input#key-input::placeholder { color: rgba(0,255,157,0.2); font-size: 13px; letter-spacing: 1px; }
+        input#key-input:focus {
+            border-color: var(--glow-green);
+            box-shadow: 0 0 12px rgba(0,255,157,0.15);
+        }
+
+        .link-btn {
+            background: linear-gradient(135deg, var(--glow-cyan), #0090aa);
             color: #000;
             border: none;
             padding: 0 20px;
-            border-radius: 8px;
-            font-family: 'Orbitron';
+            border-radius: 10px;
+            font-family: 'Orbitron', sans-serif;
             font-weight: bold;
+            font-size: 0.7rem;
+            letter-spacing: 2px;
             cursor: pointer;
+            white-space: nowrap;
+            touch-action: manipulation;
         }
 
+        /* ── PTT ── */
         .ptt-circle {
-            width: min(140px, 35vw);
-            height: min(140px, 35vw);
-            margin: 15px auto;
+            width: min(140px, 38vw);
+            height: min(140px, 38vw);
+            margin: 10px auto 0;
             border-radius: 50%;
-            border: 4px solid #1a1e23;
-            background: #000;
+            border: 3px solid #1a1e23;
+            background: radial-gradient(circle at 40% 35%, #111, #000);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.25s ease;
+            touch-action: manipulation;
+            user-select: none;
         }
 
-        .ptt-circle.active {
+        .ptt-circle:active { transform: scale(0.95); }
+
+        .ptt-circle.live {
             border-color: var(--glow-green);
-            box-shadow: 0 0 30px rgba(0, 255, 157, 0.4);
-            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0,255,157,0.4), 0 0 60px rgba(0,255,157,0.15);
         }
 
-        .mic-svg { width: 35px; fill: #333; transition: 0.3s; }
-        .active .mic-svg { fill: var(--glow-green); filter: drop-shadow(0 0 8px var(--glow-green)); }
-        .btn-label { font-size: 0.6rem; color: #555; margin-top: 5px; }
-        .active .btn-label { color: var(--glow-green); }
+        .ptt-circle.receiving {
+            border-color: var(--glow-cyan);
+            box-shadow: 0 0 25px rgba(0,242,255,0.35);
+        }
+
+        .mic-svg { width: 34px; fill: #333; transition: 0.25s; }
+        .live .mic-svg { fill: var(--glow-green); filter: drop-shadow(0 0 8px var(--glow-green)); }
+        .receiving .mic-svg { fill: var(--glow-cyan); }
+
+        .btn-label { font-size: 0.55rem; color: #555; margin-top: 6px; letter-spacing: 2px; }
+        .live .btn-label { color: var(--glow-green); }
+        .receiving .btn-label { color: var(--glow-cyan); }
+
+        .footer-info {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.45rem;
+            color: #2a3a3e;
+            text-align: center;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
 
         @keyframes bounce {
-            0%, 100% { height: 5px; opacity: 0.3; }
-            50% { height: 30px; opacity: 1; }
+            0%, 100% { height: 4px; }
+            50% { height: 28px; }
+        }
+
+        /* Scanline effect */
+        .screen-module::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0,0,0,0.08) 2px,
+                rgba(0,0,0,0.08) 4px
+            );
+            pointer-events: none;
+            border-radius: 15px;
         }
     </style>
 </head>
@@ -190,23 +308,50 @@
 
 <div class="comm-deck">
     <div class="deck-header">
-        <span>FREQ: <span id="peer-id-suffix">0.000</span></span>
-        <span>99,001 channels!</span>
+        <span>FREQ: <span id="peer-id-suffix">---.---</span></span>
+        <span>AES-256 · WEBRTC</span>
     </div>
 
     <div class="screen-module">
-        <div id="status-tag" style="font-size: 0.6rem; color: var(--glow-cyan);">[ STANDBY ]</div>
+        <div class="status-row">
+            <div id="status-tag">[ STANDBY ]</div>
+            <div class="enc-badge" id="enc-badge">🔓 OPEN</div>
+        </div>
         <div class="signal-wave" id="wave-container"></div>
-        <div class="freq-readout" id="freq-display">00.000</div>
-        <div style="font-family: 'JetBrains Mono'; font-size: 0.5rem; color: #444; text-align: center;">SECURE DATA LINK V.24</div>
+        <div class="freq-readout" id="freq-display">---.---</div>
+        <div style="font-family:'JetBrains Mono';font-size:0.45rem;color:#2a3a3e;text-align:center;letter-spacing:2px;">SECURE DATA LINK V.24</div>
     </div>
 
     <div class="control-panel">
-        <div class="input-wrapper">
-            <input type="text" id="freq-input" inputmode="decimal" placeholder="91.898">
-            <button class="set-btn" onclick="initializeComms()">LINK</button>
+
+        <!-- Channel -->
+        <div class="input-group">
+            <div class="input-label">▸ CHANNEL FREQUENCY (1 – 100)</div>
+            <div class="input-row">
+                <input type="text"
+                       id="freq-input"
+                       inputmode="decimal"
+                       autocomplete="off"
+                       autocorrect="off"
+                       spellcheck="false"
+                       placeholder="e.g. 42.500">
+                <button class="link-btn" id="link-btn" onclick="initializeComms()">LINK</button>
+            </div>
         </div>
 
+        <!-- Passphrase -->
+        <div class="input-group">
+            <div class="input-label">▸ ENCRYPTION PASSPHRASE (optional)</div>
+            <input type="text"
+                   id="key-input"
+                   inputmode="text"
+                   autocomplete="off"
+                   autocorrect="off"
+                   spellcheck="false"
+                   placeholder="both devices must match">
+        </div>
+
+        <!-- PTT -->
         <div class="ptt-circle" id="ptt-toggle">
             <svg class="mic-svg" viewBox="0 0 24 24">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
@@ -214,90 +359,199 @@
             </svg>
             <span class="btn-label" id="btn-text">TAP TO TALK</span>
         </div>
+
     </div>
+
+    <div class="footer-info">AES-256-GCM · WEBRTC PEER-TO-PEER · END-TO-END</div>
 </div>
 
 <script>
-    let peer = null;
-    let localStream = null;
-    let isLive = false;
+// ══════════════════════════════════════════════
+//  AES-256-GCM ENCRYPTION HELPERS (Web Crypto)
+// ══════════════════════════════════════════════
+async function deriveKey(passphrase) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt: enc.encode('neural-link-salt-v1'), iterations: 100000, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
 
-    // Build wave bars
-    const waveContainer = document.getElementById('wave-container');
-    for(let i=0; i<12; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        bar.style.animationDelay = `${i * 0.1}s`;
-        waveContainer.appendChild(bar);
+async function encryptAudio(buffer, key) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, buffer);
+    // Prepend IV to ciphertext
+    const out = new Uint8Array(12 + encrypted.byteLength);
+    out.set(iv, 0);
+    out.set(new Uint8Array(encrypted), 12);
+    return out.buffer;
+}
+
+async function decryptAudio(buffer, key) {
+    const data = new Uint8Array(buffer);
+    const iv = data.slice(0, 12);
+    const ciphertext = data.slice(12);
+    return crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+}
+
+// ══════════════════════════════════════════════
+//  APP STATE
+// ══════════════════════════════════════════════
+let peer = null;
+let localStream = null;
+let isLive = false;
+let cryptoKey = null;
+let dataChannel = null; // for encrypted path
+let currentCall = null;
+
+// Build wave bars
+const waveContainer = document.getElementById('wave-container');
+for (let i = 0; i < 14; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.animationDelay = `${i * 0.09}s`;
+    waveContainer.appendChild(bar);
+}
+
+function setWaveActive(on) {
+    document.querySelectorAll('.bar').forEach(b => b.classList.toggle('active-wave', on));
+}
+
+// Request mic on load
+navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+    .then(stream => {
+        localStream = stream;
+        // Mute by default until PTT
+        localStream.getAudioTracks()[0].enabled = false;
+        setStatus('[ HARDWARE READY ]', 'cyan');
+    })
+    .catch(() => setStatus('[ MIC BLOCKED ]', 'red'));
+
+function setStatus(msg, color = 'cyan') {
+    const el = document.getElementById('status-tag');
+    el.innerText = msg;
+    el.style.color = color === 'green' ? 'var(--glow-green)'
+                   : color === 'red'   ? 'var(--glow-red)'
+                   : 'var(--glow-cyan)';
+}
+
+// ══════════════════════════════════════════════
+//  INIT COMMS
+// ══════════════════════════════════════════════
+async function initializeComms() {
+    const freqRaw = document.getElementById('freq-input').value.trim();
+    const passphrase = document.getElementById('key-input').value.trim();
+
+    const val = parseFloat(freqRaw);
+    if (isNaN(val) || val < 1 || val > 100) {
+        alert('Enter a frequency between 1 and 100');
+        return;
     }
 
-    // Initialize Microphone
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        localStream = stream;
-        localStream.getAudioTracks()[0].enabled = false;
-        document.getElementById('status-tag').innerText = "[ HARDWARE READY ]";
+    const freq = val.toFixed(3);
+    document.getElementById('freq-display').innerText = freq;
+    document.getElementById('peer-id-suffix').innerText = freq;
+
+    // Blur inputs to dismiss keyboard
+    document.getElementById('freq-input').blur();
+    document.getElementById('key-input').blur();
+
+    // Set up encryption key if passphrase given
+    if (passphrase.length > 0) {
+        cryptoKey = await deriveKey(passphrase);
+        document.getElementById('enc-badge').textContent = '🔒 AES-256';
+        document.getElementById('enc-badge').classList.add('armed');
+    } else {
+        cryptoKey = null;
+        document.getElementById('enc-badge').textContent = '🔓 OPEN';
+        document.getElementById('enc-badge').classList.remove('armed');
+    }
+
+    if (peer) { peer.destroy(); peer = null; }
+
+    const peerId = `nl2-${freq.replace('.', '-')}`;
+    peer = new Peer(peerId);
+
+    peer.on('open', () => {
+        setStatus('[ CHANNEL TUNED ]', 'cyan');
+        document.getElementById('link-btn').textContent = 'TUNED';
     });
 
-    function initializeComms() {
-        const inputField = document.getElementById('freq-input');
-        const val = parseFloat(inputField.value);
-        if (isNaN(val) || val < 1 || val > 100) return alert("Enter 1 - 100");
+    // Incoming call
+    peer.on('call', call => {
+        currentCall = call;
+        call.answer(localStream);
+        handleCallStream(call);
+        setStatus('[ LINK ESTABLISHED ]', 'green');
+        setWaveActive(true);
+    });
 
-        const freq = val.toFixed(3);
-        document.getElementById('freq-display').innerText = freq;
-        document.getElementById('peer-id-suffix').innerText = freq;
-
-        // Dismiss keyboard on iPhone
-        inputField.blur();
-
-        if (peer) peer.destroy();
-        peer = new Peer(`cyber-link-${freq}`);
-
-        peer.on('open', () => {
-            document.getElementById('status-tag').innerText = "[ CHANNEL TUNED ]";
-        });
-
-        peer.on('call', (call) => {
-            call.answer(localStream);
-            handleAudio(call);
-        });
-
-        peer.on('error', (err) => {
-            if(err.type === 'unavailable-id') {
-                const call = peer.call(`cyber-link-${freq}`, localStream);
-                if(call) handleAudio(call);
+    // If ID taken → we're the second device, call the first
+    peer.on('error', err => {
+        if (err.type === 'unavailable-id') {
+            const targetId = `nl2-${freq.replace('.', '-')}`;
+            const call = peer.call(targetId, localStream);
+            if (call) {
+                currentCall = call;
+                handleCallStream(call);
+                setStatus('[ LINKING... ]', 'cyan');
             }
-        });
-    }
-
-    function handleAudio(call) {
-        call.on('stream', (remoteStream) => {
-            const audio = new Audio();
-            audio.srcObject = remoteStream;
-            audio.play();
-            document.getElementById('status-tag').innerText = "[ RECEIVING SIGNAL ]";
-        });
-    }
-
-    // PTT Toggle Logic
-    const pttBtn = document.getElementById('ptt-toggle');
-    pttBtn.addEventListener('click', () => {
-        if (!localStream) return;
-        isLive = !isLive;
-        localStream.getAudioTracks()[0].enabled = isLive;
-
-        if (isLive) {
-            pttBtn.classList.add('active');
-            document.getElementById('btn-text').innerText = "LIVE AIR";
-            document.getElementById('status-tag').innerText = "[ TRANSMITTING ]";
-            document.getElementById('status-tag').style.color = "var(--glow-green)";
         } else {
-            pttBtn.classList.remove('active');
-            document.getElementById('btn-text').innerText = "TAP TO TALK";
-            document.getElementById('status-tag').innerText = "[ CHANNEL TUNED ]";
-            document.getElementById('status-tag').style.color = "var(--glow-cyan)";
+            setStatus('[ ERROR ]', 'red');
+            console.error(err);
         }
     });
+
+    peer.on('disconnected', () => setStatus('[ SIGNAL LOST ]', 'red'));
+}
+
+// ── Handle audio stream from a call ──
+function handleCallStream(call) {
+    call.on('stream', remoteStream => {
+        const audio = new Audio();
+        audio.srcObject = remoteStream;
+        audio.play().catch(() => {});
+        setStatus('[ LINK ESTABLISHED ]', 'green');
+        setWaveActive(true);
+    });
+
+    call.on('close', () => {
+        setStatus('[ CHANNEL TUNED ]', 'cyan');
+        setWaveActive(false);
+    });
+}
+
+// ══════════════════════════════════════════════
+//  PTT TOGGLE
+// ══════════════════════════════════════════════
+const pttBtn = document.getElementById('ptt-toggle');
+
+pttBtn.addEventListener('click', () => {
+    if (!localStream) {
+        setStatus('[ NO MIC ACCESS ]', 'red');
+        return;
+    }
+
+    isLive = !isLive;
+    localStream.getAudioTracks()[0].enabled = isLive;
+
+    if (isLive) {
+        pttBtn.classList.add('live');
+        document.getElementById('btn-text').innerText = 'LIVE AIR';
+        setStatus('[ TRANSMITTING ]', 'green');
+    } else {
+        pttBtn.classList.remove('live');
+        document.getElementById('btn-text').innerText = 'TAP TO TALK';
+        const linked = currentCall !== null;
+        setStatus(linked ? '[ LINK ESTABLISHED ]' : '[ CHANNEL TUNED ]', linked ? 'green' : 'cyan');
+    }
+});
 </script>
 </body>
 </html>
